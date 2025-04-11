@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -41,9 +42,20 @@ func main() {
 			}
 
 			parts := strings.Split(data, " ")
+			url := parts[1]
+			echoPath := regexp.MustCompile(`^/echo/[^/]+$`)
 
-			if parts[1] == "/" {
+			if url == "/" {
 				conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+			} else if echoPath.MatchString(url) {
+				responseBody := strings.TrimSpace(strings.TrimPrefix(url, "/echo/"))
+				response := fmt.Sprintf(
+					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+					len(responseBody),
+					responseBody,
+				)
+
+				conn.Write([]byte(response))
 			} else {
 				conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 			}
