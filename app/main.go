@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 // Ensures gofmt doesn't remove the "net" and "os" imports above (feel free to remove this!)
@@ -22,12 +24,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn, err := l.Accept()
+	for {
+		conn, err := l.Accept()
 
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+
+		go func(c net.Conn) {
+			reader := bufio.NewReader(conn)
+			data, err := reader.ReadString('\n')
+
+			if err != nil {
+				fmt.Println("Failed to read request")
+			}
+
+			parts := strings.Split(data, " ")
+
+			if parts[1] == "/" {
+				conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+			} else {
+				conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			}
+
+			c.Close()
+		}(conn)
 	}
-
-	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 }
