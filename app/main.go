@@ -37,12 +37,29 @@ func main() {
 			reader := bufio.NewReader(conn)
 			data, err := reader.ReadString('\n')
 
+			headers := make(map[string]string)
+			for {
+				line, _ := reader.ReadString('\n')
+				line = strings.TrimSpace(line)
+				if line == "" {
+					break // End of headers
+				}
+				parts := strings.SplitN(line, ":", 2)
+				if len(parts) == 2 {
+					key := strings.TrimSpace(parts[0])
+					value := strings.TrimSpace(parts[1])
+					headers[key] = value
+				}
+			}
+
 			if err != nil {
 				fmt.Println("Failed to read request")
 			}
 
 			parts := strings.Split(data, " ")
+
 			url := parts[1]
+
 			echoPath := regexp.MustCompile(`^/echo/[^/]+$`)
 
 			if url == "/" {
@@ -53,6 +70,15 @@ func main() {
 					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
 					len(responseBody),
 					responseBody,
+				)
+
+				conn.Write([]byte(response))
+			} else if url == "/user-agent" {
+				userAgent := headers["User-Agent"]
+				response := fmt.Sprintf(
+					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+					len(userAgent),
+					userAgent,
 				)
 
 				conn.Write([]byte(response))
