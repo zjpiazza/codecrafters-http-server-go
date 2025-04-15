@@ -2,11 +2,14 @@ package main
 
 import (
 	"bufio"
+	"errors"
+	"flag"
 	"fmt"
 	"net"
 	"os"
 	"regexp"
 	"strings"
+	"syscall"
 )
 
 // Ensures gofmt doesn't remove the "net" and "os" imports above (feel free to remove this!)
@@ -16,6 +19,9 @@ var _ = os.Exit
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
+
+	var directory string
+	flag.StringVar(&directory, "directory", "/tmp", "Directory for files")
 
 	// Uncomment this block to pass the first stage
 
@@ -61,6 +67,7 @@ func main() {
 			url := parts[1]
 
 			echoPath := regexp.MustCompile(`^/echo/[^/]+$`)
+			filesPath := regexp.MustCompile(`^/files/[^/]+$`)
 
 			if url == "/" {
 				conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
@@ -82,6 +89,28 @@ func main() {
 				)
 
 				conn.Write([]byte(response))
+			} else if filesPath.MatchString(url) {
+				fileName := strings.TrimSpace(strings.TrimPrefix(url, "/files/"))
+				filePath := fmt.Sprintf("%s/%s", directory, fileName)
+				f, err := os.Open(filePath)
+				b, err := os.ReadFile(filePath)
+
+				var response string
+
+				if errors.Is(err, syscall.ENOENT) {
+					response = "HTTP/1.1 404 Not Found\r\n\r\n"
+				} else {
+					fi, _ := f.Stat()
+					size := fi.Size()
+					response = fmt.Sprintf(
+						"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
+						size,
+						string(b),
+					)
+
+				}
+				conn.Write([]byte(response))
+
 			} else {
 				conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 			}
