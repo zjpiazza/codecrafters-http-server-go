@@ -103,7 +103,7 @@ func main() {
 				b, err := os.ReadFile(filePath)
 
 				if err != nil {
-					response = "HTTP/1.1 500"
+					response = "HTTP/1.1 500 Internal Server Error"
 				}
 				fi, _ := f.Stat()
 				size := fi.Size()
