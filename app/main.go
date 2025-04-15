@@ -92,23 +92,26 @@ func main() {
 			} else if filesPath.MatchString(url) {
 				fileName := strings.TrimSpace(strings.TrimPrefix(url, "/files/"))
 				filePath := fmt.Sprintf("%s/%s", directory, fileName)
+				fmt.Println(filePath)
 				f, err := os.Open(filePath)
-				b, err := os.ReadFile(filePath)
 
 				var response string
 
 				if errors.Is(err, syscall.ENOENT) {
-					response = "HTTP/1.1 404 Not Found\r\n\r\n"
-				} else {
-					fi, _ := f.Stat()
-					size := fi.Size()
-					response = fmt.Sprintf(
-						"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
-						size,
-						string(b),
-					)
-
+					response = "HTTP/1.1 404 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: 0\r\n\r\n"
 				}
+				b, err := os.ReadFile(filePath)
+
+				if err != nil {
+					response = "HTTP/1.1 500"
+				}
+				fi, _ := f.Stat()
+				size := fi.Size()
+				response = fmt.Sprintf(
+					"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
+					size,
+					string(b),
+				)
 				conn.Write([]byte(response))
 
 			} else {
