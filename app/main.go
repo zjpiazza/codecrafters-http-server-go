@@ -93,29 +93,52 @@ func main() {
 				fileName := strings.TrimSpace(strings.TrimPrefix(url, "/files/"))
 				filePath := fmt.Sprintf("%s/%s", directory, fileName)
 				fmt.Println(filePath)
+
+				// Try to open the file
 				f, err := os.Open(filePath)
 
-				var response string
-
+				// If file doesn't exist, return 404 immediately
 				if errors.Is(err, syscall.ENOENT) {
-					response = "HTTP/1.1 404 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: 0\r\n\r\n"
+					conn.Write([]byte("HTTP/1.1 404 Not Found\r\nContent-Type: application/octet-stream\r\nContent-Length: 0\r\n\r\n"))
+					c.Close()
+					return
 				}
-				b, err := os.ReadFile(filePath)
 
+				// If there was some other error opening the file
 				if err != nil {
-					response = "HTTP/1.1 500 Internal Server Error"
+					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+					c.Close()
+					return
 				}
-				fi, _ := f.Stat()
+
+				// Make sure we close the file when done
+				defer f.Close()
+
+				// Read file contents
+				b, err := os.ReadFile(filePath)
+				if err != nil {
+					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+					c.Close()
+					return
+				}
+
+				// Get file size
+				fi, err := f.Stat()
+				if err != nil {
+					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+					c.Close()
+					return
+				}
+
 				size := fi.Size()
-				response = fmt.Sprintf(
+				response := fmt.Sprintf(
 					"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
 					size,
 					string(b),
 				)
 				conn.Write([]byte(response))
-
-			} else {
-				conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+				c.Close()
+				return
 			}
 
 			c.Close()
