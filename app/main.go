@@ -22,6 +22,7 @@ func main() {
 
 	var directory string
 	flag.StringVar(&directory, "directory", "/tmp", "Directory for files")
+	flag.Parse()
 
 	// Uncomment this block to pass the first stage
 
@@ -139,6 +140,8 @@ func main() {
 				conn.Write([]byte(response))
 				c.Close()
 				return
+			} else {
+				conn.Write([]byte("HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n"))
 			}
 
 			c.Close()
