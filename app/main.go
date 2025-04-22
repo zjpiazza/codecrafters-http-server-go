@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,6 +14,8 @@ import (
 	"strings"
 	"syscall"
 )
+
+var compressionSchemes = []string{"gzip"}
 
 func main() {
 	fmt.Println("Logs from your program will appear here!")
@@ -107,12 +111,37 @@ func handleConnection(conn net.Conn, directory string) {
 	if url == "/" {
 		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 	} else if echoPath.MatchString(url) {
+		// Support compression
+		compressResponse := false
 		responseBody := strings.TrimSpace(strings.TrimPrefix(url, "/echo/"))
-		response := fmt.Sprintf(
-			"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
-			len(responseBody),
-			responseBody,
-		)
+
+		if value, ok := headers["Accept-Encoding"]; ok {
+			if value == "gzip" {
+				compressResponse = true
+			}
+		}
+
+		var response string
+		if compressResponse {
+
+			var compressedResponse bytes.Buffer
+			w := gzip.NewWriter(&compressedResponse)
+			w.Write([]byte(responseBody))
+			w.Close()
+
+			response = fmt.Sprintf(
+				"HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+				len(compressedResponse.Bytes()),
+				compressedResponse.Bytes(),
+			)
+		} else {
+			response = fmt.Sprintf(
+				"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+				len(responseBody),
+				responseBody,
+			)
+		}
+
 		conn.Write([]byte(response))
 	} else if url == "/user-agent" {
 		userAgent := headers["User-Agent"]
