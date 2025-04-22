@@ -11,11 +11,12 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 )
 
-var compressionSchemes = []string{"gzip"}
+var serverCompressionSchemes = []string{"gzip"}
 
 func main() {
 	fmt.Println("Logs from your program will appear here!")
@@ -112,17 +113,22 @@ func handleConnection(conn net.Conn, directory string) {
 		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 	} else if echoPath.MatchString(url) {
 		// Support compression
-		compressResponse := false
+		var compressionScheme string
 		responseBody := strings.TrimSpace(strings.TrimPrefix(url, "/echo/"))
 
+		// Client can support multiple compression schemes; Comma separated list
 		if value, ok := headers["Accept-Encoding"]; ok {
-			if value == "gzip" {
-				compressResponse = true
+			clientCompressionSchemes := strings.Split(strings.ReplaceAll(value, " ", ""), ",")
+			for _, c := range clientCompressionSchemes {
+				if slices.Contains(serverCompressionSchemes, c) {
+					compressionScheme = c
+				}
+
 			}
 		}
 
 		var response string
-		if compressResponse {
+		if compressionScheme == "gzip" {
 
 			var compressedResponse bytes.Buffer
 			w := gzip.NewWriter(&compressedResponse)
